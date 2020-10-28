@@ -1,7 +1,7 @@
 import json
 
 
-def read_json(file, encoding='utf8', json_encoding='utf8'):
+def read_json(file, encoding='utf8', json_encoding='utf8', **kwargs):
     """
     :param file:
     :param encoding:

@@ -1,6 +1,7 @@
 import abc
 import itertools
 import math
+import collections
 from .utils import Compact
 try:
     import numpy as np
@@ -20,13 +21,13 @@ class CollectionStatsCollector:
 
     collector = CollectionStatsCollector()
 
-    for i in ...:
-        collector.add(i.as_dict, uid=i.uid)  # uid is optional (used for include_samples=True)
+    for collection in some_collections:
+        uid = ...  # optional - see below
+        collector.add(collection, uid=uid)  # uid is optional (used for include_samples=True)
 
     print(collector.count)
-
     print(collector)
-    print(collector.format(include_samples=False))
+    print(collector.format(include_samples=True))
     """
 
     def __init__(self):
@@ -62,6 +63,8 @@ def collection_stats(node, uid=None, _name=_NoName):
 
 class CollectionStats(metaclass=abc.ABCMeta):
     MAX_SAMPLES = 5
+    MAX_RUN_SIZES = 1000
+    MAX_SIZES = 10
 
     def __init__(self, node, name=_NoName, uid=None):
         self._node = node
@@ -74,6 +77,10 @@ class CollectionStats(metaclass=abc.ABCMeta):
         self._avg = self._size
         self._max = self._size
         self._std = 0
+
+        self._size_counter = collections.Counter()
+        if self._size is not None:
+            self._size_counter[self._size] = 1
 
         self._type_samples = set()
         self._min_samples = {}
@@ -133,10 +140,10 @@ class CollectionStats(metaclass=abc.ABCMeta):
     def __str__(self):
         return self._as_str()
 
-    def format(self, include_samples=True):
-        return self._as_str(include_samples=include_samples)
+    def format(self, include_samples=True, include_sizes=True):
+        return self._as_str(include_samples=include_samples, include_sizes=include_sizes)
 
-    def _as_str(self, indentation='', last_child=False, include_samples=True):
+    def _as_str(self, indentation='', last_child=False, include_samples=True, include_sizes=True):
         """1 dict avg3.0 min3 max3 std0 type[1] min[1] max[1]"""
         mapping_value_overindent = 2
         own_str_parts = list()
@@ -155,12 +162,24 @@ class CollectionStats(metaclass=abc.ABCMeta):
         if self._size is not None:
             mn = self._min if not isinstance(self._min, bool) else int(self._min)
             mx = self._max if not isinstance(self._max, bool) else int(self._max)
-            own_str_parts.append(
-                f'avg {Compact.float(self._avg)} '
-                f'({mn}–{mx}) '
-                f'std {Compact.float(self._std)}'
-            )
+            str_part = f'avg {Compact.float(self._avg)} '
+            if mn != mx:
+                str_part += f'({mn}–{mx}) '
+            str_part += f'std {Compact.float(self._std)}'
+            own_str_parts.append(str_part)
+        if self._size_counter and include_sizes:
+            str_part = ''
+            if len(self._size_counter) > self.MAX_RUN_SIZES:
+                str_part += 'sample'
+            elif len(self._size_counter) > self.MAX_SIZES:
+                str_part += f'top{self.MAX_SIZES}freq'
+            else:
+                str_part += 'all'
+            sizes = dict(self._size_counter.most_common(self.MAX_SIZES))
+            str_part += f'{sizes}'
+            own_str_parts.append(str_part)
         if self._type_samples and include_samples:
+            own_str_parts.append('uids:')
             own_str_parts.append(f'type{sorted(self._type_samples)}')
             if self._size is not None:
                 own_str_parts.append(f'min{sorted(self._min_samples)} max{sorted(self._max_samples)}')
@@ -197,12 +216,18 @@ class CollectionStats(metaclass=abc.ABCMeta):
         )
 
     def __add__(self, other):
-        assert type(self._node) == type(other._node)
+        if type(self._node) is not type(other._node):
+            raise NotImplementedError()
         if self._size is not None:
             self._add_samples(other)
             self._min = min(self._min, other._min)
             self._max = max(self._max, other._max)
             self._avg = (self._avg * self._count + other._avg * other._count) / (self._count + other._count)
+            if len(self._size_counter) <= self.MAX_RUN_SIZES:
+                self._size_counter.update(other._size_counter)
+                if len(self._size_counter) > self.MAX_RUN_SIZES:
+                    self._size_counter = collections.Counter(
+                        dict(self._size_counter.most_common(self.MAX_RUN_SIZES+1)))
 
             # std
             if self._count > 1 and other._count == 1:
