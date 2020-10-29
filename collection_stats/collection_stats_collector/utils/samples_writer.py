@@ -38,9 +38,9 @@ class SamplesWriter:
             if not field_samples:
                 continue
 
-            dst = Path(self._directory, *path_items)
-            dst = dst.with_name(dst.name+'.txt')
             tag = path_items[-1] if path_items else ''
+            dst = Path(self._directory, *[i.replace(':', '~') for i in path_items])
+            dst = dst.with_name(dst.name+'.txt')
             os.makedirs(dst.parent, exist_ok=True)
 
             count = len(field_samples)
