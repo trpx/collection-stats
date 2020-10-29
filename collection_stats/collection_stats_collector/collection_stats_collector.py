@@ -185,7 +185,8 @@ class CollectionStats(metaclass=abc.ABCMeta):
                 own_str_parts.append(f'min{sorted(self._min_samples)} max{sorted(self._max_samples)}')
         parts = [' '.join(own_str_parts), ]
         if self._name is not _NoName:
-            parts.insert(0, f'{indentation[:-2-mapping_value_overindent]+postfix}{repr(self._name)}:')
+            name = str(self._name).replace('OrderedDict', 'dict').replace('NoneType', 'None')
+            parts.insert(0, f'{indentation[:-2-mapping_value_overindent]+postfix}{repr(name)}:')
         children_nodes = self._sorted_children_nodes
         children_count = len(children_nodes)
         children_str_parts = []

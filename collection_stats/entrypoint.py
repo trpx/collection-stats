@@ -83,13 +83,6 @@ def main(
 
     report = str(collector)
 
-    for token, replacement in [
-        ['OrderedDict', 'dict'],
-        ['dict', 'dict'],
-        [' NoneType', ' null'],
-    ]:
-        report = report.replace(token, replacement)
-
     with report_file.open(mode='w', encoding='utf8') as f:
         f.write(report)
         print(f"written '{report_file}'", file=sys.stderr)
