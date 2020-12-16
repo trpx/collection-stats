@@ -16,7 +16,7 @@ import shutil
 @click.option('--encoding', type=str, default='utf8', help='[utf8|...] (of src_file)')
 @click.option('--json_encoding', type=str, default='utf8', help='[utf8|...] (of src_file)')
 @click.option('--format', default=None,
-              type=click.Choice(['json', 'xml'], case_sensitive=False))
+              type=click.Choice(['csv', 'json', 'xml'], case_sensitive=False))
 @click.option('--samples', is_flag=True,
               help="write samples to 'samples' directory alongside the report file")
 @click.option('--samples-dir',
@@ -36,6 +36,7 @@ import shutil
     help="don't validate xml file against xml schema"
          " (works only if both --xsd option and xml src_file provided)"
 )
+@click.option('--csv-sep', default=',', type=str, help="col separator, used with csv format only")
 @click.option('--debug', is_flag=True, help="prefer more verbose errors (if any)")
 def main(
         src_file,
@@ -49,6 +50,7 @@ def main(
         max_samples,
         xsd,
         no_validate_xsd,
+        csv_sep,
         debug,
 ):
     """
@@ -60,17 +62,19 @@ def main(
     os.makedirs(report_file.parent, exist_ok=True)
     if report_file.is_file():
         report_file.unlink()
+    samples = samples or samples_dir
     samples_dir = Path(samples_dir) if samples_dir else report_file.parent.joinpath('samples')
     if samples and samples_dir.is_dir():
         shutil.rmtree(samples_dir)
 
-    dct = _read_as_dict(
+    format, dct = _read_as_dict(
         src_file,
         encoding=encoding,
         json_encoding=json_encoding,
         format=format,
         xml_schema_file=xsd,
         no_validate_xml_schema=no_validate_xsd,
+        csv_sep=csv_sep,
         debug=debug,
     )
 
@@ -84,7 +88,7 @@ def main(
     report = str(collector)
 
     with report_file.open(mode='w', encoding='utf8') as f:
-        f.write(report)
+        f.write(report+'\n')
         print(f"written '{report_file}'", file=sys.stderr)
 
     if not samples:
@@ -92,7 +96,8 @@ def main(
 
     samples_writer = utils.SamplesWriter(
         samples_dir,
-        max_samples=max_samples
+        max_samples=max_samples,
+        is_xml_like=format == 'xml',
     )
     samples_writer.write(dct)
 
@@ -105,12 +110,15 @@ def _read_as_dict(
         format,
         xml_schema_file,
         no_validate_xml_schema,
+        csv_sep,
         debug,
 ):
     readers = {
         'xml': utils.read_xml,
+        'csv': utils.read_csv,
         'json': utils.read_json,
     }
+    format = format or (file.name.rsplit('.', 1)[-1].lower() if '.' in file.name else None)
     main_reader = readers.pop(format, None)
     if main_reader is not None:
         readers = {
@@ -125,8 +133,9 @@ def _read_as_dict(
                 json_encoding=json_encoding,
                 xml_schema_file=xml_schema_file,
                 no_validate_schema=no_validate_xml_schema,
+                sep=csv_sep,
             )
-            return dct
+            return format, dct
         except Exception as exc:
             formats_errors[format] = exc
             continue

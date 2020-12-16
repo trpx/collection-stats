@@ -159,29 +159,35 @@ class CollectionStats(metaclass=abc.ABCMeta):
             indentation += ' ' * mapping_value_overindent
             count_indentation = indentation
         own_str_parts.append(f'{count_indentation}{self._count} {self._type_name}')
-        if self._size is not None:
+        if self._is_countable:
             mn = self._min if not isinstance(self._min, bool) else int(self._min)
             mx = self._max if not isinstance(self._max, bool) else int(self._max)
-            str_part = f'avg {Compact.float(self._avg)} '
+            str_part = f'{Compact.float(self._avg)} '
+            if self._count > 1:
+                str_part_prefix = 'avg '
+            else:
+                str_part_prefix = 'size '
+            str_part = str_part_prefix + str_part
             if mn != mx:
                 str_part += f'({mn}–{mx}) '
-            str_part += f'std {Compact.float(self._std)}'
+            if self._count > 1:
+                str_part += f'std {Compact.float(self._std)}'
             own_str_parts.append(str_part)
-        if self._size_counter and include_sizes:
-            str_part = ''
-            if len(self._size_counter) > self.MAX_RUN_SIZES:
-                str_part += 'sample'
-            elif len(self._size_counter) > self.MAX_SIZES:
-                str_part += f'top{self.MAX_SIZES}freq'
-            else:
-                str_part += 'all'
-            sizes = dict(self._size_counter.most_common(self.MAX_SIZES))
-            str_part += f'{sizes}'
-            own_str_parts.append(str_part)
+            if self._size_counter and include_sizes and mn != mx:
+                str_part = ''
+                if len(self._size_counter) > self.MAX_RUN_SIZES:
+                    str_part += 'sample'
+                elif len(self._size_counter) > self.MAX_SIZES:
+                    str_part += f'top{self.MAX_SIZES}freq'
+                else:
+                    str_part += 'all'
+                sizes = dict(self._size_counter.most_common(self.MAX_SIZES))
+                str_part += f'{sizes}'
+                own_str_parts.append(str_part)
         if self._type_samples and include_samples:
             own_str_parts.append('uids:')
             own_str_parts.append(f'type{sorted(self._type_samples)}')
-            if self._size is not None:
+            if self._is_countable:
                 own_str_parts.append(f'min{sorted(self._min_samples)} max{sorted(self._max_samples)}')
         parts = [' '.join(own_str_parts), ]
         if self._name is not _NoName:
@@ -203,6 +209,10 @@ class CollectionStats(metaclass=abc.ABCMeta):
                 )
             )
         return '\n'.join(itertools.chain(parts, children_str_parts))
+
+    @property
+    def _is_countable(self):
+        return self._size is not None
 
     @property
     def _sorted_children_nodes(self):
