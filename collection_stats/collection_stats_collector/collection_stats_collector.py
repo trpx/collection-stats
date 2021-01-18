@@ -69,7 +69,8 @@ class CollectionStats(metaclass=abc.ABCMeta):
     def __init__(self, node, name=_NoName, uid=None):
         self._node = node
         self._name = name
-        self._type_name = type(node).__name__
+        self._type_name = type(node).__name__\
+            .replace('OrderedDict', 'dict').replace('NoneType', 'None').replace('Decimal', 'decimal')
         self._uid = uid
 
         self._count = 1
@@ -191,8 +192,7 @@ class CollectionStats(metaclass=abc.ABCMeta):
                 own_str_parts.append(f'min{sorted(self._min_samples)} max{sorted(self._max_samples)}')
         parts = [' '.join(own_str_parts), ]
         if self._name is not _NoName:
-            name = self._name = str(self._name).replace('OrderedDict', 'dict').replace('NoneType', 'None')
-            parts.insert(0, f'{indentation[:-2-mapping_value_overindent]+postfix}{repr(name)}:')
+            parts.insert(0, f'{indentation[:-2-mapping_value_overindent]+postfix}{repr(self._name)}:')
         children_nodes = self._sorted_children_nodes
         children_count = len(children_nodes)
         children_str_parts = []
