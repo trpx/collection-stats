@@ -147,7 +147,7 @@ class CollectionStats(metaclass=abc.ABCMeta):
     def _as_str(self, indentation='', last_child=False, include_samples=True, include_sizes=True):
         """1 dict avg3.0 min3 max3 std0 type[1] min[1] max[1]"""
         mapping_value_overindent = 2
-        own_str_parts = list()
+        own_str_parts = []
         if last_child:
             postfix = '└ '
         else:
@@ -220,8 +220,7 @@ class CollectionStats(metaclass=abc.ABCMeta):
             self._children_nodes.values(),
             key=lambda x: (
                 x.priority,
-                x._size is None,
-                x._size if x._size is not None else -1,
+                -x._count,
                 x._name if x._name is not _NoName else '',
             )
         )
